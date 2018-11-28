@@ -1,13 +1,9 @@
-﻿using Prism.Forms.Tests.Mocks;
-using Prism.Forms.Tests.Mocks.ViewModels;
-using Prism.Forms.Tests.Mocks.Views;
+﻿using Prism.Forms.Tests.Mvvm.Mocks.ViewModels;
+using Prism.Forms.Tests.Mvvm.Mocks.Views;
 using Prism.Mvvm;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
+using Xamarin.Forms;
 using Xunit;
 
 namespace Prism.Forms.Tests.Mvvm
@@ -19,13 +15,15 @@ namespace Prism.Forms.Tests.Mvvm
         {
             ResetViewModelLocationProvider();
 
-            PageMock view = new PageMock();
+            ViewModelLocatorPageMock view = new ViewModelLocatorPageMock();
             Assert.Null(view.BindingContext);
 
             ViewModelLocator.SetAutowireViewModel(view, true);
 
             Assert.NotNull(view.BindingContext);
-            Assert.IsType< PageMockViewModel>(view.BindingContext);
+            Assert.IsType<ViewModelLocatorPageMockViewModel>(view.BindingContext);
+
+            ResetViewModelLocationProvider();
         }
 
         [Fact]
@@ -33,11 +31,13 @@ namespace Prism.Forms.Tests.Mvvm
         {
             ResetViewModelLocationProvider();
 
-            PageMock view = new PageMock();
+            ViewModelLocatorPageMock view = new ViewModelLocatorPageMock();
 
             ViewModelLocator.SetAutowireViewModel(view, true);
 
             Assert.True(ViewModelLocator.GetAutowireViewModel(view));
+
+            ResetViewModelLocationProvider();
         }
 
         [Fact]
@@ -45,7 +45,7 @@ namespace Prism.Forms.Tests.Mvvm
         {
             ResetViewModelLocationProvider();
 
-            PageMock view = new PageMock();
+            ViewModelLocatorPageMock view = new ViewModelLocatorPageMock();
             Assert.Null(view.BindingContext);
 
             object mockObject = new object();
@@ -54,6 +54,8 @@ namespace Prism.Forms.Tests.Mvvm
             ViewModelLocator.SetAutowireViewModel(view, true);
             Assert.NotNull(view.BindingContext);
             Assert.Equal(mockObject, view.BindingContext);
+
+            ResetViewModelLocationProvider();
         }
 
         [Fact]
@@ -61,14 +63,27 @@ namespace Prism.Forms.Tests.Mvvm
         {
             ResetViewModelLocationProvider();
 
-            PageMock view = new PageMock();
+            var view = new TestPageOfShouldUseCustomDefaultViewTypeToViewModelTypeResolverWhenSet();
             Assert.Null(view.BindingContext);
 
-            ViewModelLocationProvider.SetDefaultViewTypeToViewModelTypeResolver(viewType => typeof(ViewModelLocatorFixture));
+            var propertyInfo = typeof(ViewModelLocationProvider).GetField("_defaultViewTypeToViewModelTypeResolver", BindingFlags.NonPublic | BindingFlags.Static);
+            var defaultResolver = (Func<Type, Type>)propertyInfo.GetValue(typeof(ViewModelLocationProvider));
+
+            ViewModelLocationProvider.SetDefaultViewTypeToViewModelTypeResolver(
+                viewType => 
+                    viewType == typeof(TestPageOfShouldUseCustomDefaultViewTypeToViewModelTypeResolverWhenSet) 
+                        ? typeof(ViewModelLocatorFixture) 
+                        : defaultResolver(viewType));
 
             ViewModelLocator.SetAutowireViewModel(view, true);
             Assert.NotNull(view.BindingContext);
             Assert.IsType<ViewModelLocatorFixture>(view.BindingContext);
+
+            ResetViewModelLocationProvider();
+        }
+
+        private class TestPageOfShouldUseCustomDefaultViewTypeToViewModelTypeResolverWhenSet : ContentPage
+        {
         }
 
         [Fact]
@@ -76,7 +91,7 @@ namespace Prism.Forms.Tests.Mvvm
         {
             ResetViewModelLocationProvider();
 
-            PageMock view = new PageMock();
+            ViewModelLocatorPageMock view = new ViewModelLocatorPageMock();
             Assert.Null(view.BindingContext);
 
             string viewModel = "Test String";
@@ -85,6 +100,8 @@ namespace Prism.Forms.Tests.Mvvm
             ViewModelLocator.SetAutowireViewModel(view, true);
             Assert.NotNull(view.BindingContext);
             Assert.Equal(viewModel, view.BindingContext);
+
+            ResetViewModelLocationProvider();
         }
 
         private static void ResetViewModelLocationProvider()

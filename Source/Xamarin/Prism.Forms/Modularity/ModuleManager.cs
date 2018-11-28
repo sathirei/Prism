@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Reflection;
+using Prism.Properties;
 
 namespace Prism.Modularity
 {
@@ -9,16 +12,20 @@ namespace Prism.Modularity
     /// </summary>
     public class ModuleManager : IModuleManager
     {
-        readonly IModuleCatalog _moduleCatalog;
-        readonly IModuleInitializer _moduleInitializer;
-
         /// <summary>
         /// The module catalog.
         /// </summary>
-        protected IModuleCatalog ModuleCatalog
-        {
-            get { return _moduleCatalog; }
-        }
+        protected IModuleCatalog ModuleCatalog { get; }
+
+        /// <summary>
+        /// Raised when a module is loaded or fails to load.
+        /// </summary>
+        public event EventHandler<LoadModuleCompletedEventArgs> LoadModuleCompleted;
+
+        /// <summary>
+        /// The module initializer.
+        /// </summary>
+        protected IModuleInitializer ModuleInitializer { get; }
 
         /// <summary>
         /// Initializes an instance of the <see cref="ModuleManager"/> class.
@@ -27,14 +34,8 @@ namespace Prism.Modularity
         /// <param name="moduleCatalog">Catalog that enumerates the modules to be loaded and initialized.</param>
         public ModuleManager(IModuleInitializer moduleInitializer, IModuleCatalog moduleCatalog)
         {
-            if (moduleInitializer == null)
-                throw new ArgumentNullException("moduleInitializer");
-
-            if (moduleCatalog == null)
-                throw new ArgumentNullException("moduleCatalog");
-
-            _moduleInitializer = moduleInitializer;
-            _moduleCatalog = moduleCatalog;
+            ModuleInitializer = moduleInitializer ?? throw new ArgumentNullException(nameof(moduleInitializer));
+            ModuleCatalog = moduleCatalog ?? throw new ArgumentNullException(nameof(moduleCatalog));
         }
 
         /// <summary>
@@ -42,7 +43,6 @@ namespace Prism.Modularity
         /// </summary>
         public void Run()
         {
-            _moduleCatalog.Initialize();
             LoadModulesWhenAvailable();
         }
 
@@ -54,32 +54,63 @@ namespace Prism.Modularity
         {
             var modules = ModuleCatalog.Modules.Where(m => m.ModuleName == moduleName);
             if (modules == null || modules.Count() == 0)
-                throw new Exception(String.Format("Module {0} was not found in the catalog.", moduleName));
+            {
+                throw new ModuleNotFoundException(moduleName, string.Format(CultureInfo.CurrentCulture, Resources.ModuleNotFound, moduleName));
+            }
+            else if(modules.Count() > 1)
+            {
+                throw new DuplicateModuleException(moduleName, string.Format(CultureInfo.CurrentCulture, Resources.DuplicatedModuleInCatalog, moduleName));
+            }
 
-            if (modules.Count() != 1)
-                throw new Exception(String.Format("A duplicated module with name {0} has been found in the catalog.", moduleName));
+            var modulesToLoad = ModuleCatalog.CompleteListWithDependencies(modules);
 
-            LoadModules(modules);
+            LoadModules(modulesToLoad);
         }
 
-        void LoadModulesWhenAvailable()
+        /// <summary>
+        /// Loads the <see cref="IModule"/>'s with <see cref="InitializationMode.WhenAvailable"/>
+        /// </summary>
+        protected void LoadModulesWhenAvailable()
         {
-            var whenAvailableModules = ModuleCatalog.Modules.Where(m => m.InitializationMode == InitializationMode.WhenAvailable);
+            var whenAvailableModules = ModuleCatalog.Modules.Where(m => m.InitializationMode == InitializationMode.WhenAvailable && m.State == ModuleState.NotStarted);
             if (whenAvailableModules != null)
                 LoadModules(whenAvailableModules);
         }
 
-        void LoadModules(IEnumerable<ModuleInfo> moduleInfos)
+        /// <summary>
+        /// Loads the specified modules.
+        /// </summary>
+        /// <param name="moduleInfos"><see cref="IModuleInfo"/>.</param>
+        protected virtual void LoadModules(IEnumerable<IModuleInfo> moduleInfos)
         {
             foreach (var moduleInfo in moduleInfos)
             {
-                if (moduleInfo.State != ModuleState.Initialized)
+                if (moduleInfo.State == ModuleState.NotStarted)
                 {
-                    moduleInfo.State = ModuleState.Initializing;
-                    _moduleInitializer.Initialize(moduleInfo);
-                    moduleInfo.State = ModuleState.Initialized;
+                    try
+                    {
+                        moduleInfo.State = ModuleState.Initializing;
+                        ModuleInitializer.Initialize(moduleInfo);
+                        moduleInfo.State = ModuleState.Initialized;
+                        RaiseLoadModuleCompleted(moduleInfo);
+                    }
+                    catch (Exception ex)
+                    {
+                        RaiseLoadModuleCompleted(moduleInfo, ex);
+                    }
+                    
                 }
             }
+        }
+
+        /// <summary>
+        /// Raises the <see cref="LoadModuleCompleted"/> event.
+        /// </summary>
+        /// <param name="moduleInfo">The <see cref="IModuleInfo"/> that was just loaded.</param>
+        /// <param name="ex">An <see cref="Exception"/> if any that was thrown during the loading of the <see cref="IModule"/></param>
+        protected void RaiseLoadModuleCompleted(IModuleInfo moduleInfo, Exception ex = null)
+        {
+            LoadModuleCompleted?.Invoke(this, new LoadModuleCompletedEventArgs(moduleInfo, ex));
         }
     }
 }

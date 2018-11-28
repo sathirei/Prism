@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using Ninject;
-using Microsoft.Practices.ServiceLocation;
+using CommonServiceLocator;
 
 namespace Prism.Ninject
 {
-    internal class NinjectServiceLocatorAdapter : ServiceLocatorImplBase
+    public class NinjectServiceLocatorAdapter : ServiceLocatorImplBase
     {
         private readonly IKernel Kernel;
 

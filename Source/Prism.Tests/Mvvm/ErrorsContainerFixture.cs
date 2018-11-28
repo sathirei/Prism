@@ -33,7 +33,7 @@ namespace Prism.Tests.Mvvm
             validation.SetErrors("property1", new[] { "message"});
 
             Assert.True(validation.HasErrors);
-            Assert.True(validation.GetErrors("property1").Contains("message"));
+            Assert.Contains("message", validation.GetErrors("property1"));
             Assert.Equal(new[] { "property1" }, validatedProperties);
         }
 
@@ -65,7 +65,7 @@ namespace Prism.Tests.Mvvm
             validation.SetErrors("property1", new[] { "message" });
 
             Assert.True(validation.HasErrors);
-            Assert.True(validation.GetErrors("property1").Contains("message"));
+            Assert.Contains("message", validation.GetErrors("property1"));
             Assert.Equal(new[] { "property1" }, validatedProperties);
         }
 
@@ -129,6 +129,24 @@ namespace Prism.Tests.Mvvm
             viewModel.ClearMockPropertyErrors();
 
             Assert.False(viewModel.HasErrors);
+        }
+
+        [Fact]
+        public void WhenGettingErrors_ThenErrorsPerPropertyReturnd()
+        {
+            List<string> validatedProperties = new List<string>();
+
+            var validation = new ErrorsContainer<string>(pn => validatedProperties.Add(pn));
+
+            validation.SetErrors("property1", new[] { "message" });
+            validation.SetErrors("property2", new[] { "message" });
+
+            var errors = validation.GetErrors();
+
+            Assert.True(errors.Any());
+            Assert.True(errors.Count == 2);
+            Assert.Contains(errors, e => e.Key.Equals("property1"));
+            Assert.Contains(errors, e => e.Key.Equals("property2"));
         }
 
         [Fact]

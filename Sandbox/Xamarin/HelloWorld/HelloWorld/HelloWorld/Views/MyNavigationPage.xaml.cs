@@ -1,10 +1,10 @@
 ﻿using Prism.Navigation;
-
+using System;
 using Xamarin.Forms;
 
 namespace HelloWorld.Views
 {
-    public partial class MyNavigationPage : NavigationPage, INavigationPageOptions
+    public partial class MyNavigationPage : NavigationPage, INavigationPageOptions, IDestructible
     {
         public MyNavigationPage()
         {
@@ -14,6 +14,11 @@ namespace HelloWorld.Views
         public bool ClearNavigationStackOnNavigation
         {
             get { return true; }
+        }
+
+        public void Destroy()
+        {
+            
         }
     }
 }

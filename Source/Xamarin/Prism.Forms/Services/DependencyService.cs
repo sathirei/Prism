@@ -1,4 +1,5 @@
-﻿namespace Prism.Services
+﻿
+namespace Prism.Services
 {
     /// <summary>
     /// A service that provides acess to platform-specific implementations of a specified type

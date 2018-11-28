@@ -1,4 +1,6 @@
-﻿using System;
+﻿// Define DEBUG symbol to enable Debug.WriteLine to work even when Prism is compiled in Release-mode for Nuget-feed.
+#define DEBUG
+using System;
 using System.Diagnostics;
 using System.Globalization;
 using Prism.Properties;
@@ -18,7 +20,7 @@ namespace Prism.Logging
         /// <param name="priority">The priority of the entry.</param>
         public void Log(string message, Category category, Priority priority)
         {
-            string messageToLog = String.Format(CultureInfo.InvariantCulture, Resources.DefaultDebugLoggerPattern, DateTime.Now,
+            string messageToLog = string.Format(CultureInfo.InvariantCulture, Resources.DefaultDebugLoggerPattern, DateTime.Now,
                                                 category.ToString().ToUpper(), message, priority);
 
             Debug.WriteLine(messageToLog);

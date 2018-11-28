@@ -2,10 +2,14 @@
 using Prism.Commands;
 using Prism.Mvvm;
 using Prism.Navigation;
+using Prism;
+using Prism.AppModel;
+using System.Diagnostics;
+using Prism.Navigation.TabbedPages;
 
 namespace ModuleA.ViewModels
 {
-    public class ViewAViewModel : BindableBase, INavigationAware
+    public class ViewAViewModel : BindableBase, INavigationAware, IActiveAware, IApplicationLifecycleAware, IPageLifecycleAware
     {
         private readonly INavigationService _navigationService;
 
@@ -17,6 +21,9 @@ namespace ModuleA.ViewModels
         }
 
         private bool _canNavigate = true;
+
+
+
         public bool CanNavigate
         {
             get { return _canNavigate; }
@@ -25,28 +32,94 @@ namespace ModuleA.ViewModels
 
         public DelegateCommand NavigateCommand { get; set; }
 
-        public ViewAViewModel(INavigationService navigationService)
+        public DelegateCommand SaveCommand { get; private set; }
+
+        public DelegateCommand ResetCommand { get; private set; }
+
+        public event EventHandler IsActiveChanged;
+
+        bool _isActive;
+        public bool IsActive
+        {
+            get { return _isActive; }
+            set
+            {
+                SetProperty(ref _isActive, value);
+                OnActiveChanged();
+            }
+        }
+
+        public ViewAViewModel(INavigationService navigationService, IApplicationCommands applicationCommands)
         {
             _navigationService = navigationService;
 
-            NavigateCommand = new DelegateCommand(Navigate).ObservesCanExecute((vm) => CanNavigate);
+            NavigateCommand = new DelegateCommand(Navigate).ObservesCanExecute(() => CanNavigate);
+            SaveCommand = new DelegateCommand(Save);
+            ResetCommand = new DelegateCommand(Reset);
+
+            applicationCommands.SaveCommand.RegisterCommand(SaveCommand);
+            applicationCommands.ResetCommand.RegisterCommand(ResetCommand);
+        }
+
+        private void Reset()
+        {
+            Title = "View A";
+        }
+
+        private void Save()
+        {
+            Title = "Saved";
         }
 
         async void Navigate()
         {
             CanNavigate = false;
-            await _navigationService.NavigateAsync("ViewB");
+            await _navigationService.SelectTabAsync("ViewC");
             CanNavigate = true;
         }
 
-        public void OnNavigatedFrom(NavigationParameters parameters)
+        void OnActiveChanged()
         {
-            
+            SaveCommand.IsActive = IsActive;
         }
 
-        public void OnNavigatedTo(NavigationParameters parameters)
+        public void OnNavigatedFrom(INavigationParameters parameters)
         {
-            
+
+        }
+
+        public void OnNavigatedTo(INavigationParameters parameters)
+        {
+            var navigationMode = parameters.GetNavigationMode();
+            if (navigationMode == NavigationMode.Back)
+                Title = "Went Back";
+            else if (navigationMode == NavigationMode.New)
+                Title = "Went to New Page";
+        }
+
+        public void OnNavigatingTo(INavigationParameters parameters)
+        {
+
+        }
+
+        public void OnResume()
+        {
+            Title = "Application resumed";
+        }
+
+        public void OnSleep()
+        {
+            Title = "Aplpication went to sleep";
+        }
+
+        public void OnAppearing()
+        {
+            Debug.WriteLine("ViewA is appearing");
+        }
+
+        public void OnDisappearing()
+        {
+            Debug.WriteLine("ViewA is disappearing");
         }
     }
 }

@@ -1,25 +1,25 @@
 
 
 using System.Windows;
-using Microsoft.Practices.ServiceLocation;
-using Microsoft.Practices.Unity;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using CommonServiceLocator;
+using Unity;
+using Xunit;
 using Prism.Logging;
 using Prism.Regions;
 
 namespace Prism.Unity.Wpf.Tests
 {
-    [TestClass]
+    
     public class UnityBootstrapperNullModuleManagerFixture
     {
-        [TestMethod]
+        [Fact]
         public void RunShouldNotCallInitializeModulesWhenModuleManagerNotFound()
         {
             var bootstrapper = new NullModuleManagerBootstrapper();
 
             bootstrapper.Run();
 
-            Assert.IsFalse(bootstrapper.InitializeModulesCalled);
+            Assert.False(bootstrapper.InitializeModulesCalled);
         }
 
         private class NullModuleManagerBootstrapper : UnityBootstrapper

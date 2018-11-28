@@ -2,16 +2,16 @@
 
 using System;
 using System.Windows;
-using Microsoft.Practices.Unity;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Unity;
+using Xunit;
 using Prism.IocContainer.Wpf.Tests.Support;
 
 namespace Prism.Unity.Wpf.Tests
 {
-    [TestClass]
+    
     public class UnityBootstrapperNullContainerFixture : BootstrapperFixtureBase
     {
-        [TestMethod]
+        [Fact]
         public void RunThrowsWhenNullContainerCreated()
         {
             var bootstrapper = new NullContainerBootstrapper();

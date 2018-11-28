@@ -1,149 +1,108 @@
 ﻿using System;
 using System.Linq;
+using System.Reflection;
 using DryIoc;
 using Prism.Common;
-using Prism.DryIoc.Extensions;
-using Prism.DryIoc.Modularity;
-using Prism.DryIoc.Navigation;
-using Prism.Events;
-using Prism.Modularity;
-using Prism.Mvvm;
+using Prism.Ioc;
+using Prism.Logging;
 using Prism.Navigation;
-using Prism.Services;
 using Xamarin.Forms;
-using DependencyService = Prism.Services.DependencyService;
+using Xamarin.Forms.Internals;
 
 namespace Prism.DryIoc
 {
     /// <summary>
     /// Application base class using DryIoc
     /// </summary>
-    public abstract class PrismApplication : PrismApplicationBase<IContainer>
+    public abstract class PrismApplication : PrismApplicationBase
     {
         /// <summary>
-        /// Service key used when registering the <see cref="DryIocPageNavigationService"/> with the container
+        /// Initializes a new instance of PrismApplication using the default constructor
         /// </summary>
-        private const string _navigationServiceKey = "DryIocPageNavigationService";
+        protected PrismApplication() 
+            : base() { }
 
         /// <summary>
-        /// Create a new instance of <see cref="PrismApplication"/>
+        /// Initializes a new instance of <see cref="PrismApplication" /> with a <see cref="IPlatformInitializer" />.
+        /// Used when there are specific types that need to be registered on the platform.
         /// </summary>
-        /// <param name="platformInitializer">Class to initialize platform instances</param>
-        /// <remarks>
-        /// The method <see cref="IPlatformInitializer.RegisterTypes(IContainer)"/> will be called after <see cref="PrismApplication.RegisterTypes()"/> 
-        /// to allow for registering platform specific instances.
-        /// </remarks>
-        protected PrismApplication(IPlatformInitializer platformInitializer = null)
-            : base(platformInitializer)
-        {
-
-        }
+        /// <param name="platformInitializer">The <see cref="IPlatformInitializer"/>.</param>
+        protected PrismApplication(IPlatformInitializer platformInitializer)
+            : base(platformInitializer) { }
 
         /// <summary>
-        /// Create a default instance of <see cref="IContainer" /> with <see cref="Rules" /> created in
-        /// <see cref="CreateContainerRules" />
+        /// Initializes a new instance of <see cref="PrismApplication" /> with a <see cref="IPlatformInitializer" />.
+        /// Used when there are specific types that need to be registered on the platform.
+        /// Also determines whether to set the <see cref="DependencyResolver" /> for resolving Renderers and Platform Effects.
         /// </summary>
-        /// <returns>An instance of <see cref="IContainer" /></returns>
-        protected override IContainer CreateContainer()
+        /// <param name="platformInitializer">The <see cref="IPlatformInitializer"/>.</param>
+        /// <param name="setFormsDependencyResolver">Should <see cref="PrismApplication" /> set the <see cref="DependencyResolver" />.</param>
+        protected PrismApplication(IPlatformInitializer platformInitializer, bool setFormsDependencyResolver)
+            : base(platformInitializer, setFormsDependencyResolver) { }
+
+        /// <summary>
+        /// Creates the <see cref="IContainerExtension"/> for DryIoc
+        /// </summary>
+        /// <returns></returns>
+        protected override IContainerExtension CreateContainerExtension()
         {
-            var rules = CreateContainerRules();
-            return new Container(rules);
+            return new DryIocContainerExtension(new Container(CreateContainerRules()));
         }
 
-        protected override IModuleManager CreateModuleManager()
+#if __ANDROID__
+        /// <summary>
+        /// Sets the <see cref="DependencyResolver" /> to use the App Container for resolving types
+        /// </summary>
+        protected override void SetDependencyResolver(IContainerProvider containerProvider)
         {
-            return Container.Resolve<IModuleManager>();
+            base.SetDependencyResolver(containerProvider);
+            DependencyResolver.ResolveUsing((Type type, object[] dependencies) =>
+            {
+                var container = containerProvider.GetContainer();
+
+                foreach(var dependency in dependencies)
+                {
+                    if(dependency is Android.Content.Context context)
+                    {
+                        var resolver = container.Resolve<Func<Android.Content.Context, object>>(type);
+                        return resolver.Invoke(context);
+                    }
+                }
+                container.Resolve<ILoggerFacade>().Log($"Could not locate an Android.Content.Context to resolve {type.Name}", Category.Warn, Priority.High);
+                return container.Resolve(type);
+            });
         }
+#endif
 
         /// <summary>
         /// Create <see cref="Rules" /> to alter behavior of <see cref="IContainer" />
         /// </summary>
-        /// <remarks>
-        /// Default rule is to consult <see cref="Xamarin.Forms.DependencyService" /> if the requested type cannot be inferred from
-        /// <see cref="Container" />
-        /// </remarks>
         /// <returns>An instance of <see cref="Rules" /></returns>
-        protected virtual Rules CreateContainerRules()
+        protected virtual Rules CreateContainerRules() => Rules.Default.WithAutoConcreteTypeResolution()
+                                                                       .With(Made.Of(FactoryMethod.ConstructorWithResolvableArguments))
+                                                                       .WithDefaultIfAlreadyRegistered(IfAlreadyRegistered.Replace);
+
+        /// <summary>
+        /// Configures the Container.
+        /// </summary>
+        /// <param name="containerRegistry"></param>
+        protected override void RegisterRequiredTypes(IContainerRegistry containerRegistry)
         {
-            return UnknownServiceResolverRule.DependencyServiceResolverRule;
+            base.RegisterRequiredTypes(containerRegistry);
+            containerRegistry.GetContainer().Register<INavigationService, PageNavigationService>();
+            containerRegistry.GetContainer().Register<INavigationService>(
+                made: Made.Of(() => SetPage(Arg.Of<INavigationService>(), Arg.Of<Page>())),
+                setup: Setup.Decorator);
         }
 
-        protected override void ConfigureContainer()
+        internal static INavigationService SetPage(INavigationService navigationService, Page page)
         {
-            Container.RegisterInstance(Logger);
-            Container.RegisterInstance(ModuleCatalog);
-            Container.RegisterInstance(Container);
-            Container.Register<INavigationService, DryIocPageNavigationService>(serviceKey: _navigationServiceKey);
-            Container.Register<IApplicationProvider, ApplicationProvider>(Reuse.Singleton);
-            Container.Register<IModuleManager, ModuleManager>(Reuse.Singleton);
-            Container.Register<IModuleInitializer, DryIocModuleInitializer>(Reuse.Singleton);
-            Container.Register<IEventAggregator, EventAggregator>(Reuse.Singleton);
-            Container.Register<IDependencyService, DependencyService>(Reuse.Singleton);
-            Container.Register<IPageDialogService, PageDialogService>(Reuse.Singleton);
-        }
-
-        protected override void InitializeModules()
-        {
-            if (ModuleCatalog.Modules.Any())
+            if (navigationService is IPageAware pageAware)
             {
-                var manager = Container.Resolve<IModuleManager>();
-                manager.Run();
+                pageAware.Page = page;
             }
-        }
 
-        /// <summary>
-        /// Create instance of <see cref="INavigationService"/>
-        /// </summary>
-        /// <remarks>
-        /// The <see cref="_navigationServiceKey"/> is used as service key when resolving
-        /// </remarks>
-        /// <returns>Instance of <see cref="INavigationService"/></returns>
-        protected override INavigationService CreateNavigationService()
-        {
-            return Container.Resolve<INavigationService>(_navigationServiceKey);
-        }
-
-        /// <summary>
-        /// Create instance of <see cref="INavigationService"/> and set the <see cref="IPageAware.Page"/> property to <paramref name="page"/>
-        /// </summary>
-        /// <param name="page">Active page</param>
-        /// <returns>Instance of <see cref="INavigationService"/> with <see cref="IPageAware.Page"/> set</returns>
-        protected INavigationService CreateNavigationService(Page page)
-        {
-            var navigationService = CreateNavigationService();
-            ((IPageAware)navigationService).Page = page;
             return navigationService;
-        }
-
-        protected override void ConfigureViewModelLocator()
-        {
-            ViewModelLocationProvider.SetDefaultViewModelFactory((view, type) =>
-            {
-                var page = view as Page;
-                if (page != null)
-                {
-                    return PageViewModelFactory(page, type);
-                }
-                return Container.Resolve(type);
-            });
-        }
-
-        /// <summary>
-        /// Resolve the view model of <paramref name="type"/> associated with <paramref name="page"/>
-        /// </summary>
-        /// <remarks>
-        /// The method will set the <see cref="IPageAware.Page" /> property on the <see cref="INavigationService"/>  
-        /// instance that will be injected into the view model.
-        /// </remarks>
-        /// <param name="page">The <see cref="Page"/> associated with the view model</param>
-        /// <param name="type">View model type to resolve</param>
-        /// <returns>View model instance of type <paramref name="type"/></returns>
-        protected virtual object PageViewModelFactory(Page page, Type type)
-        {
-            var navigationService = CreateNavigationService(page);
-            // Resolve type using the instance navigationService
-            var resolver = Container.Resolve<Func<INavigationService, object>>(type);
-            return resolver(navigationService);
         }
     }
 }

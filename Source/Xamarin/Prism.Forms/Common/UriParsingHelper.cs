@@ -34,7 +34,7 @@ namespace Prism.Common
             return segment.Split('?')[0];
         }
 
-        public static NavigationParameters GetSegmentParameters(string segment)
+        public static INavigationParameters GetSegmentParameters(string segment)
         {
             string query = string.Empty;
 
@@ -50,6 +50,21 @@ namespace Prism.Common
             return new NavigationParameters(query);
         }
 
+        public static INavigationParameters GetSegmentParameters(string uriSegment, INavigationParameters parameters)
+        {
+            var navParameters = UriParsingHelper.GetSegmentParameters(uriSegment);
+
+            if (parameters != null)
+            {
+                foreach (KeyValuePair<string, object> navigationParameter in parameters)
+                {
+                    navParameters.Add(navigationParameter.Key, navigationParameter.Value);
+                }
+            }
+
+            return navParameters;
+        }
+
         public static Uri EnsureAbsolute(Uri uri)
         {
             if (uri.IsAbsoluteUri)
@@ -62,6 +77,20 @@ namespace Prism.Common
                 return new Uri("http://localhost/" + uri, UriKind.Absolute);
             }
             return new Uri("http://localhost" + uri, UriKind.Absolute);
+        }
+
+        public static Uri Parse(string uri)
+        {
+            if (uri == null) throw new ArgumentNullException(nameof(uri));
+
+            if (uri.StartsWith("/", StringComparison.Ordinal))
+            {
+                return new Uri("http://localhost" + uri, UriKind.Absolute);
+            }
+            else
+            {
+                return new Uri(uri, UriKind.RelativeOrAbsolute);
+            }
         }
     }
 }

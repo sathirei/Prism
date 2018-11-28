@@ -1,10 +1,8 @@
-
-
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using Microsoft.Practices.ServiceLocation;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Xunit;
+using Prism.Ioc;
 using Prism.Logging;
 using Prism.Modularity;
 using Prism.Wpf.Tests.Mocks;
@@ -14,64 +12,73 @@ namespace Prism.Wpf.Tests.Modularity
     /// <summary>
     /// Summary description for ModuleInitializerFixture
     /// </summary>
-    [TestClass]
+    
     public class ModuleInitializerFixture
     {
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
+        [Fact]
         public void NullContainerThrows()
         {
-            ModuleInitializer loader = new ModuleInitializer(null, new MockLogger());
+            var ex = Assert.Throws<ArgumentNullException>(() =>
+            {
+                ModuleInitializer loader = new ModuleInitializer(null, new MockLogger());
+            });
+            
         }
 
-        [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
+        [Fact]
         public void NullLoggerThrows()
         {
-            ModuleInitializer loader = new ModuleInitializer(new MockContainerAdapter(), null);
+            var ex = Assert.Throws<ArgumentNullException>(() =>
+            {
+                ModuleInitializer loader = new ModuleInitializer(new MockContainerAdapter(), null);
+            });
+            
         }
 
-        [TestMethod]
-        [ExpectedException(typeof(ModuleInitializeException))]
+        [Fact]
         public void InitializationExceptionsAreWrapped()
         {
-            var moduleInfo = CreateModuleInfo(typeof(ExceptionThrowingModule));
+            var ex = Assert.Throws<ModuleInitializeException>(() =>
+            {
+                var moduleInfo = CreateModuleInfo(typeof(ExceptionThrowingModule));
 
-            ModuleInitializer loader = new ModuleInitializer(new MockContainerAdapter(), new MockLogger());
+                ModuleInitializer loader = new ModuleInitializer(new MockContainerAdapter(), new MockLogger());
 
-            loader.Initialize(moduleInfo);
+                loader.Initialize(moduleInfo);
+            });
+
         }
 
 
-        [TestMethod]
+        [Fact]
         public void ShouldResolveModuleAndInitializeSingleModule()
         {
-            IServiceLocator containerFacade = new MockContainerAdapter();
+            IContainerExtension containerFacade = new MockContainerAdapter();
             var service = new ModuleInitializer(containerFacade, new MockLogger());
             FirstTestModule.wasInitializedOnce = false;
             var info = CreateModuleInfo(typeof(FirstTestModule));
             service.Initialize(info);
-            Assert.IsTrue(FirstTestModule.wasInitializedOnce);
+            Assert.True(FirstTestModule.wasInitializedOnce);
         }
 
 
-        [TestMethod]
+        [Fact]
         public void ShouldLogModuleInitializeErrorsAndContinueLoading()
         {
-            IServiceLocator containerFacade = new MockContainerAdapter();
+            IContainerExtension containerFacade = new MockContainerAdapter();
             var logger = new MockLogger();
             var service = new CustomModuleInitializerService(containerFacade, logger);
             var invalidModule = CreateModuleInfo(typeof(InvalidModule));
 
-            Assert.IsFalse(service.HandleModuleInitializerrorCalled);
+            Assert.False(service.HandleModuleInitializerrorCalled);
             service.Initialize(invalidModule);
-            Assert.IsTrue(service.HandleModuleInitializerrorCalled);
+            Assert.True(service.HandleModuleInitializerrorCalled);
         }
 
-        [TestMethod]
+        [Fact]
         public void ShouldLogModuleInitializationError()
         {
-            IServiceLocator containerFacade = new MockContainerAdapter();
+            IContainerExtension containerFacade = new MockContainerAdapter();
             var logger = new MockLogger();
             var service = new ModuleInitializer(containerFacade, logger);
             ExceptionThrowingModule.wasInitializedOnce = false;
@@ -85,11 +92,11 @@ namespace Prism.Wpf.Tests.Modularity
             {
             }
 
-            Assert.IsNotNull(logger.LastMessage);
-            StringAssert.Contains(logger.LastMessage, "ExceptionThrowingModule");
+            Assert.NotNull(logger.LastMessage);
+            Assert.Contains("ExceptionThrowingModule", logger.LastMessage);
         }
 
-        [TestMethod]
+        [Fact]
         public void ShouldThrowExceptionIfBogusType()
         {
             var moduleInfo = new ModuleInfo("TestModule", "BadAssembly.BadType");
@@ -99,15 +106,15 @@ namespace Prism.Wpf.Tests.Modularity
             try
             {
                 loader.Initialize(moduleInfo);
-                Assert.Fail("Did not throw exception");
+                //Assert.Fail("Did not throw exception");
             }
             catch (ModuleInitializeException ex)
             {
-                StringAssert.Contains(ex.Message, "BadAssembly.BadType");
+                Assert.Contains("BadAssembly.BadType", ex.Message);
             }
             catch(Exception)
             {
-                Assert.Fail();
+                //Assert.Fail();
             }
 
         }
@@ -128,10 +135,15 @@ namespace Prism.Wpf.Tests.Modularity
         {
             public static bool wasInitializedOnce;
 
-            public void Initialize()
+            public void OnInitialized(IContainerProvider containerProvider)
             {
                 wasInitializedOnce = true;
                 ModuleLoadTracker.ModuleLoadStack.Push(GetType());
+            }
+
+            public void RegisterTypes(IContainerRegistry containerRegistry)
+            {
+                
             }
         }
 
@@ -140,10 +152,15 @@ namespace Prism.Wpf.Tests.Modularity
             public static bool wasInitializedOnce;
             public static long initializedOnTickCount;
 
-            public void Initialize()
+            public void OnInitialized(IContainerProvider containerProvider)
             {
                 wasInitializedOnce = true;
                 ModuleLoadTracker.ModuleLoadStack.Push(GetType());
+            }
+
+            public void RegisterTypes(IContainerRegistry containerRegistry)
+            {
+                
             }
         }
 
@@ -151,10 +168,15 @@ namespace Prism.Wpf.Tests.Modularity
         {
             public static bool wasInitializedOnce;
 
-            public void Initialize()
+            public void OnInitialized(IContainerProvider containerProvider)
             {
                 wasInitializedOnce = true;
                 ModuleLoadTracker.ModuleLoadStack.Push(GetType());
+            }
+
+            public void RegisterTypes(IContainerRegistry containerRegistry)
+            {
+                
             }
         }
 
@@ -163,10 +185,15 @@ namespace Prism.Wpf.Tests.Modularity
             public static bool wasInitializedOnce;
             public static long initializedOnTickCount;
 
-            public void Initialize()
+            public void OnInitialized(IContainerProvider containerProvider)
             {
                 wasInitializedOnce = true;
                 ModuleLoadTracker.ModuleLoadStack.Push(GetType());
+            }
+
+            public void RegisterTypes(IContainerRegistry containerRegistry)
+            {
+                
             }
         }
 
@@ -175,9 +202,14 @@ namespace Prism.Wpf.Tests.Modularity
             public static bool wasInitializedOnce;
             public static long initializedOnTickCount;
 
-            public void Initialize()
+            public void OnInitialized(IContainerProvider containerProvider)
             {
                 throw new InvalidOperationException("Intialization can't be performed");
+            }
+
+            public void RegisterTypes(IContainerRegistry containerRegistry)
+            {
+                throw new NotImplementedException();
             }
         }
 
@@ -187,20 +219,36 @@ namespace Prism.Wpf.Tests.Modularity
         {
             public bool HandleModuleInitializerrorCalled;
 
-            public CustomModuleInitializerService(IServiceLocator containerFacade, ILoggerFacade logger)
+            public CustomModuleInitializerService(IContainerExtension containerFacade, ILoggerFacade logger)
                 : base(containerFacade, logger)
             {
             }
 
-            public override void HandleModuleInitializationError(ModuleInfo moduleInfo, string assemblyName, Exception exception)
+            public override void HandleModuleInitializationError(IModuleInfo moduleInfo, string assemblyName, Exception exception)
             {
                 HandleModuleInitializerrorCalled = true;
             }
         }
 
-        public class Module1 : IModule { void IModule.Initialize() { } }
-        public class Module2 : IModule { void IModule.Initialize() { } }
-        public class Module3 : IModule { void IModule.Initialize() { } }
-        public class Module4 : IModule { void IModule.Initialize() { } }
+        public class Module1 : IModule
+        {
+            void IModule.OnInitialized(IContainerProvider containerProvider) { }
+            void IModule.RegisterTypes(IContainerRegistry containerRegistry) { }
+        }
+        public class Module2 : IModule
+        {
+            void IModule.OnInitialized(IContainerProvider containerProvider) { }
+            void IModule.RegisterTypes(IContainerRegistry containerRegistry) { }
+        }
+        public class Module3 : IModule
+        {
+            void IModule.OnInitialized(IContainerProvider containerProvider) { }
+            void IModule.RegisterTypes(IContainerRegistry containerRegistry) { }
+        }
+        public class Module4 : IModule
+        {
+            void IModule.OnInitialized(IContainerProvider containerProvider) { }
+            void IModule.RegisterTypes(IContainerRegistry containerRegistry) { }
+        }
     }
 }

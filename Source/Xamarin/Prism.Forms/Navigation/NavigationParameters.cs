@@ -1,6 +1,9 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using System.Reflection;
 
 namespace Prism.Navigation
 {
@@ -10,13 +13,36 @@ namespace Prism.Navigation
     /// <remarks>
     /// This class can be used to to pass object parameters during Navigation. 
     /// </remarks>
-    public class NavigationParameters : Dictionary<string, object>
+    public class NavigationParameters : INavigationParameters, INavigationParametersInternal
     {
+        private readonly List<KeyValuePair<string, object>> _entries = new List<KeyValuePair<string, object>>();
+        private readonly Dictionary<string, object> _internalParameters = new Dictionary<string, object>();
+
+        /// <summary>
+        /// Gets the number of parameters contained in the NavigationParameters
+        /// </summary>
+        public int Count
+        {
+            get
+            {
+                return _entries.Count;
+            }
+        }
+
+        /// <summary>
+        /// Gets an IEnumerable containing the keys in the NavigationParameters
+        /// </summary>
+        public IEnumerable<string> Keys
+        {
+            get { return _entries.Select(x => x.Key); }
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="NavigationParameters"/> class.
         /// </summary>
         public NavigationParameters()
         {
+
         }
 
         /// <summary>
@@ -48,18 +74,172 @@ namespace Prism.Navigation
                         }
                         i++;
                     }
-                    string str = null; //key
-                    string str2 = null; //value
+                    string key = null;
+                    string value = null;
                     if (num4 >= 0)
                     {
-                        str = query.Substring(startIndex, num4 - startIndex);
-                        str2 = query.Substring(num4 + 1, (i - num4) - 1);
+                        key = query.Substring(startIndex, num4 - startIndex);
+                        value = query.Substring(num4 + 1, (i - num4) - 1);
+                    }
+                    else
+                    {
+                        value = query.Substring(startIndex, i - startIndex);
                     }
 
-                    if (str != null)
-                        this.Add(Uri.UnescapeDataString(str), Uri.UnescapeDataString(str2));
+                    if (key != null)
+                        Add(Uri.UnescapeDataString(key), Uri.UnescapeDataString(value));
                 }
             }
+        }
+
+        /// <summary>
+        /// Gets the <see cref="System.String"/> with the specified key.
+        /// </summary>
+        /// <returns>The value for the specified key, or <see langword="null"/> if the query does not contain such a key.</returns>
+        public object this[string key]
+        {
+            get
+            {
+                foreach (var kvp in _entries)
+                {
+                    if (string.Compare(kvp.Key, key, StringComparison.Ordinal) == 0)
+                    {
+                        return kvp.Value;
+                    }
+                }
+
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Gets the enumerator.
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerator<KeyValuePair<string, object>> GetEnumerator()
+        {
+            return _entries.GetEnumerator();
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        /// <summary>
+        /// Adds the specified key and value.
+        /// </summary>
+        /// <param name="key">The key.</param>
+        /// <param name="value">The value.</param>
+        public void Add(string key, object value)
+        {
+            _entries.Add(new KeyValuePair<string, object>(key, value));
+        }
+
+        /// <summary>
+        /// Determines whether the NavigationParameters contains the specified key
+        /// </summary>
+        /// <param name="key">The key to locate</param>
+        public bool ContainsKey(string key)
+        {
+            foreach (var kvp in _entries)
+            {
+                if (string.Compare(kvp.Key, key, StringComparison.Ordinal) == 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Gets a strongly typed value with the specified key.
+        /// </summary>
+        /// <typeparam name="T">The type to cast/convert the value to.</typeparam>
+        /// <param name="key">The key.</param>
+        /// <returns>The value.</returns>
+        public T GetValue<T>(string key)
+        {
+            return GetValue<T>(key, _entries);
+        }
+
+        T GetValue<T>(string key, IEnumerable<KeyValuePair<string, object>> parameters)
+        {
+            foreach (var kvp in parameters)
+            {
+                if (string.Compare(kvp.Key, key, StringComparison.Ordinal) == 0)
+                {
+                    if (kvp.Value == null)
+                        return default(T);
+                    else if (kvp.Value.GetType() == typeof(T))
+                        return (T)kvp.Value;
+                    else if (typeof(T).GetTypeInfo().IsAssignableFrom(kvp.Value.GetType().GetTypeInfo()))
+                        return (T)kvp.Value;
+                    else
+                        return (T)Convert.ChangeType(kvp.Value, typeof(T));
+                }
+            }
+
+            return default(T);
+        }
+
+        /// <summary>
+        /// Gets a strongly typed value with the specified key.
+        /// </summary>
+        /// <typeparam name="T">The type to cast/convert the value to.</typeparam>
+        /// <param name="key">The key.</param>
+        /// <param name="value">Key value if such key exists.</param>
+        /// <returns>True if such key exists.</returns>
+        public bool TryGetValue<T>(string key, out T value)
+        {
+            foreach (var kvp in _entries)
+            {
+                if (string.Compare(kvp.Key, key, StringComparison.Ordinal) == 0)
+                {
+                    if (kvp.Value == null)
+                        value = default(T);
+                    else if (kvp.Value.GetType() == typeof(T))
+                        value = (T)kvp.Value;
+                    else if (typeof(T).GetTypeInfo().IsAssignableFrom(kvp.Value.GetType().GetTypeInfo()))
+                        value = (T)kvp.Value;
+                    else
+                        value = (T)Convert.ChangeType(kvp.Value, typeof(T));
+
+                    return true;
+                }
+            }
+
+            value = default(T);
+            return false;
+        }
+
+        /// <summary>
+        /// Gets a strongly typed collection containing the values with the specified key.
+        /// </summary>
+        /// <typeparam name="T">The type to cast/convert the value to.</typeparam>
+        /// <param name="key">The key.</param>
+        /// <returns>The collection of values.</returns>
+        public IEnumerable<T> GetValues<T>(string key)
+        {
+            List<T> values = new List<T>();
+
+            foreach (var kvp in _entries)
+            {
+                if (string.Compare(kvp.Key, key, StringComparison.Ordinal) == 0)
+                {
+                    if (kvp.Value == null)
+                        values.Add(default(T));
+                    else if (kvp.Value.GetType() == typeof(T))
+                        values.Add((T)kvp.Value);
+                    else if (typeof(T).GetTypeInfo().IsAssignableFrom(kvp.Value.GetType().GetTypeInfo()))
+                        values.Add((T)kvp.Value);
+                    else
+                        values.Add((T)Convert.ChangeType(kvp.Value, typeof(T)));
+                }
+            }
+
+            return values.AsEnumerable();
         }
 
         /// <summary>
@@ -70,12 +250,12 @@ namespace Prism.Navigation
         {
             var queryBuilder = new StringBuilder();
 
-            if (this.Count > 0)
+            if (_entries.Count > 0)
             {
                 queryBuilder.Append('?');
                 var first = true;
 
-                foreach (var kvp in this)
+                foreach (var kvp in _entries)
                 {
                     if (!first)
                     {
@@ -88,11 +268,28 @@ namespace Prism.Navigation
 
                     queryBuilder.Append(Uri.EscapeDataString(kvp.Key));
                     queryBuilder.Append('=');
-                    queryBuilder.Append(Uri.EscapeDataString(kvp.Value.ToString()));
+                    queryBuilder.Append(Uri.EscapeDataString(kvp.Value != null ? kvp.Value.ToString() : ""));
                 }
             }
 
             return queryBuilder.ToString();
         }
+
+        #region INavigationParametersInternal
+        void INavigationParametersInternal.Add(string key, object value)
+        {
+            _internalParameters.Add(key, value);
+        }
+
+        bool INavigationParametersInternal.ContainsKey(string key)
+        {
+            return _internalParameters.ContainsKey(key);
+        }
+
+        T INavigationParametersInternal.GetValue<T>(string key)
+        {
+            return GetValue<T>(key, _internalParameters);
+        }
+        #endregion
     }
 }
