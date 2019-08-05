@@ -8,6 +8,7 @@ using Prism.Modularity;
 using Prism.Mvvm;
 using Prism.Navigation;
 using Prism.Services;
+using Prism.Services.Dialogs;
 using System;
 using System.Linq;
 using Xamarin.Forms;
@@ -91,19 +92,47 @@ namespace Prism
         {
             ViewModelLocationProvider.SetDefaultViewModelFactory((view, type) =>
             {
-                return _containerExtension.ResolveViewModelForView(view, type);
+                INavigationService navigationService = null;
+                switch (view)
+                {
+                    case Page page:
+                        navigationService = CreateNavigationService(page);
+                        break;
+                    case BindableObject bindable:
+                        if (bindable.GetValue(ViewModelLocator.AutowirePartialViewProperty) is Page attachedPage)
+                        {
+                            navigationService = CreateNavigationService(attachedPage);
+                        }
+                        break;
+                }
+
+                return Container.Resolve(type, (typeof(INavigationService), navigationService));
             });
+        }
+
+
+        protected INavigationService CreateNavigationService(Page page)
+        {
+            var navService = Container.Resolve<INavigationService>(NavigationServiceName);
+            if(navService is IPageAware pa)
+            {
+                pa.Page = page;
+            }
+
+            return navService;
         }
 
         /// <summary>
         /// Run the bootstrapper process.
         /// </summary>
-        public virtual void Initialize()
+        protected virtual void Initialize()
         {
             _containerExtension = CreateContainerExtension();
             RegisterRequiredTypes(_containerExtension);
             PlatformInitializer?.RegisterTypes(_containerExtension);
             RegisterTypes(_containerExtension);
+            AutoRegistrationViewNameProvider.SetDefaultProvider(GetNavigationSegmentNameFromType);
+            GetType().AutoRegisterViews(_containerExtension);
             _containerExtension.FinalizeExtension();
 
             if(_setFormsDependencyResolver)
@@ -120,8 +149,27 @@ namespace Prism
         /// <summary>
         /// Sets the <see cref="DependencyResolver" /> to use the App Container for resolving types
         /// </summary>
-        protected virtual void SetDependencyResolver(IContainerProvider containerProvider) =>
+        protected virtual void SetDependencyResolver(IContainerProvider containerProvider)
+        {
             DependencyResolver.ResolveUsing(type => containerProvider.Resolve(type));
+#if __ANDROID__
+            DependencyResolver.ResolveUsing((Type type, object[] dependencies) =>
+            {
+                foreach(var dependency in dependencies)
+                {
+                    if(dependency is Android.Content.Context context)
+                    {
+                        return containerProvider.Resolve(type, (typeof(Android.Content.Context), context));
+                    }
+                }
+                containerProvider.Resolve<ILoggerFacade>().Log($"Could not locate an Android.Content.Context to resolve {type.Name}", Category.Warn, Priority.High);
+                return containerProvider.Resolve(type);
+            });
+#endif
+        }
+
+        protected virtual string GetNavigationSegmentNameFromType(Type pageType) =>
+            pageType.Name;
 
 
         /// <summary>
@@ -143,6 +191,7 @@ namespace Prism
             containerRegistry.RegisterSingleton<IEventAggregator, EventAggregator>();
             containerRegistry.RegisterSingleton<IDependencyService, DependencyService>();
             containerRegistry.RegisterSingleton<IPageDialogService, PageDialogService>();
+            containerRegistry.RegisterSingleton<IDialogService, DialogService>();
             containerRegistry.RegisterSingleton<IDeviceService, DeviceService>();
             containerRegistry.RegisterSingleton<IPageBehaviorFactory, PageBehaviorFactory>();
             containerRegistry.RegisterSingleton<IModuleCatalog, ModuleCatalog>();
@@ -167,11 +216,8 @@ namespace Prism
         /// </summary>
         protected virtual void InitializeModules()
         {
-            if (_moduleCatalog.Modules.Count() > 0)
+            if (_moduleCatalog.Modules.Any())
             {
-                if (!_containerExtension.SupportsModules)
-                    throw new NotSupportedException("Container does not support the use of Modules.");
-
                 IModuleManager manager = Container.Resolve<IModuleManager>();
                 manager.Run();
             }

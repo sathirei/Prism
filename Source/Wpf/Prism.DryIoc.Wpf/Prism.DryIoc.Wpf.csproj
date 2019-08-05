@@ -10,18 +10,12 @@
     <!--<Summary>DryIoc extensions for Prism.</Summary>-->
     <Description>Use these extensions to build Prism applications based on DryIoc.</Description>
     <PackageTags>prism;dryioc;mvvm;wpf;xaml</PackageTags>
-    <Version Condition=" '$(PRISM_RELEASE)' != '' ">$(PRISM_RELEASE)</Version>
     <Version Condition=" '$(PRISM_DRYIOC_WPF_VERSION)' != '' ">$(PRISM_DRYIOC_WPF_VERSION)</Version>
-    <!-- Update this version when incrementing Library Versions i.e. 7.1.0, 7.2.0 -->
-    <VersionPrefix Condition=" '$(PRISM_RELEASE)' == '' And '$(PRISM_DRYIOC_WPF_VERSION)' == '' ">7.2.0</VersionPrefix>
-    <!-- This will create CI builds as 7.0.0.1234-ci -->
-    <VersionPrefix Condition=" '$(PRISM_RELEASE)' == '' And '$(PRISM_DRYIOC_WPF_VERSION)' == '' And '$(BUILD_BUILDID)' != '' ">$(VersionPrefix).$(BUILD_BUILDID)</VersionPrefix>
-    <VersionSuffix Condition=" '$(PRISM_RELEASE)' == '' And '$(PRISM_DRYIOC_WPF_VERSION)' == '' And '$(BUILD_BUILDID)' != '' And !'$(IS_RELEASE)' ">ci</VersionSuffix>
-    <VersionSuffix Condition=" '$(PRISM_RELEASE)' == '' And '$(PRISM_DRYIOC_WPF_VERSION)' == '' And '$(IS_PREVIEW)' ">pre</VersionSuffix>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DryIoc.dll" Version="3.0.2" />
+    <PackageReference Include="DryIoc.dll" Version="4.0.4" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0-beta2-19270-01" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>

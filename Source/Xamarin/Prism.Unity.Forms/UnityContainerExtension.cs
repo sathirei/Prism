@@ -1,9 +1,8 @@
-﻿using Prism.Ioc;
-using Prism.Mvvm;
-using System;
+﻿using System;
+using System.Linq;
+using Prism.Ioc;
 using Unity;
 using Unity.Resolution;
-using Xamarin.Forms;
 
 namespace Prism.Unity
 {
@@ -11,30 +10,44 @@ namespace Prism.Unity
     {
         public IUnityContainer Instance { get; }
 
-        public bool SupportsModules => true;
-
         public UnityContainerExtension(IUnityContainer container) => Instance = container;
 
         public void FinalizeExtension() { }
 
-        public void RegisterInstance(Type type, object instance)
+        public IContainerRegistry RegisterInstance(Type type, object instance)
         {
             Instance.RegisterInstance(type, instance);
+            return this;
         }
 
-        public void RegisterSingleton(Type from, Type to)
+        public IContainerRegistry RegisterInstance(Type type, object instance, string name)
+        {
+            Instance.RegisterInstance(type, name, instance);
+            return this;
+        }
+
+        public IContainerRegistry RegisterSingleton(Type from, Type to)
         {
             Instance.RegisterSingleton(from, to);
+            return this;
         }
 
-        public void Register(Type from, Type to)
+        public IContainerRegistry RegisterSingleton(Type from, Type to, string name)
+        {
+            Instance.RegisterSingleton(from, to, name);
+            return this;
+        }
+
+        public IContainerRegistry Register(Type from, Type to)
         {
             Instance.RegisterType(from, to);
+            return this;
         }
 
-        public void Register(Type from, Type to, string name)
+        public IContainerRegistry Register(Type from, Type to, string name)
         {
             Instance.RegisterType(from, to, name);
+            return this;
         }
 
         public object Resolve(Type type)
@@ -47,37 +60,26 @@ namespace Prism.Unity
             return Instance.Resolve(type, name);
         }
 
-        public object ResolveViewModelForView(object view, Type viewModelType)
+        public object Resolve(Type type, params (Type Type, object Instance)[] parameters)
         {
-            ResolverOverride[] overrides = null;
+            var overrides = parameters.Select(p => new DependencyOverride(p.Type, p.Instance)).ToArray();
+            return Instance.Resolve(type, overrides);
+        }
 
-            switch (view)
-            {
-                case Page page:
-                    overrides = new ResolverOverride[]
-                    {
-                        new DependencyOverride(
-                            typeof(Navigation.INavigationService),
-                            this.CreateNavigationService(page)
-                        )
-                    };
-                    break;
-                case BindableObject bindable:
-                    var attachedPage = bindable.GetValue(ViewModelLocator.AutowirePartialViewProperty) as Page;
-                    if (attachedPage != null)
-                    {
-                        overrides = new ResolverOverride[]
-                        {
-                            new DependencyOverride(
-                                typeof(Navigation.INavigationService),
-                                this.CreateNavigationService(attachedPage)
-                            )
-                        };
-                    }
-                    break;
-            }
+        public object Resolve(Type type, string name, params (Type Type, object Instance)[] parameters)
+        {
+            var overrides = parameters.Select(p => new DependencyOverride(p.Type, p.Instance)).ToArray();
+            return Instance.Resolve(type, name, overrides);
+        }
 
-            return Instance.Resolve(viewModelType, overrides);
+        public bool IsRegistered(Type type)
+        {
+            return Instance.IsRegistered(type);
+        }
+
+        public bool IsRegistered(Type type, string name)
+        {
+            return Instance.IsRegistered(type, name);
         }
     }
 }

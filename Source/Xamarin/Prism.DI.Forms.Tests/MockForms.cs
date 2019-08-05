@@ -27,6 +27,11 @@ namespace Xamarin.Forms.Mocks
             OpenUriAction = null;
         }
 
+        public static void UpdateRuntimePlatform(string runtimePlatform)
+        {
+            Device.PlatformServices = new PlatformServices(runtimePlatform);
+        }
+
         private class PlatformServices : IPlatformServices
         {
             public PlatformServices(string runtimePlatform)
@@ -68,6 +73,11 @@ namespace Xamarin.Forms.Mocks
             public double GetNamedSize(NamedSize size, Type targetElementType, bool useOldSizes)
             {
                 return 14;
+            }
+
+            public SizeRequest GetNativeSize(VisualElement view, double widthConstraint, double heightConstraint)
+            {
+                throw new NotImplementedException();
             }
 
             public Task<Stream> GetStreamAsync(Uri uri, CancellationToken cancellationToken)

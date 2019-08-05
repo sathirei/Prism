@@ -12,8 +12,6 @@ namespace Prism.Forms.Tests.Mocks
 
         public object Instance => throw new NotImplementedException();
 
-        public bool SupportsModules => true;
-
         public object GetInstance(string key)
         {
             if (_registeredPages.ContainsKey(key))
@@ -22,13 +20,14 @@ namespace Prism.Forms.Tests.Mocks
             return null;
         }
 
-        public void Register(string key, Type type)
+        public IContainerRegistry Register(string key, Type type)
         {
             if (!_registeredPages.ContainsKey(key))
             {
                 _registeredPages.Add(key, type);
                 PageNavigationRegistry.Register(key, type);
             }
+            return this;
         }
 
         public object Resolve(Type type)
@@ -41,37 +40,37 @@ namespace Prism.Forms.Tests.Mocks
             throw new NotImplementedException();
         }
 
-        public void Register(Type from, Type to)
+        public IContainerRegistry Register(Type from, Type to)
         {
             throw new NotImplementedException();
         }
 
-        public void Register(Type from, Type to, string name)
+        public IContainerRegistry Register(Type from, Type to, string name)
         {
             throw new NotImplementedException();
         }
 
-        public void RegisterInstance(Type type, object instance)
+        public IContainerRegistry RegisterInstance(Type type, object instance)
         {
             throw new NotImplementedException();
         }
 
-        public void RegisterSingleton(Type type)
+        public IContainerRegistry RegisterSingleton(Type type)
         {
             throw new NotImplementedException();
         }
 
-        public void RegisterSingleton(Type from, Type to)
+        public IContainerRegistry RegisterSingleton(Type from, Type to)
         {
             throw new NotImplementedException();
         }
 
-        public void RegisterType(Type type)
+        public IContainerRegistry RegisterType(Type type)
         {
             throw new NotImplementedException();
         }
 
-        public void RegisterType(Type type, string name)
+        public IContainerRegistry RegisterType(Type type, string name)
         {
             throw new NotImplementedException();
         }
@@ -86,7 +85,32 @@ namespace Prism.Forms.Tests.Mocks
             
         }
 
-        public object ResolveViewModelForView(object view, Type viewModelType)
+        public bool IsRegistered(Type type)
+        {
+            throw new NotImplementedException();
+        }
+
+        public bool IsRegistered(Type type, string name)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IContainerRegistry RegisterInstance(Type type, object instance, string name)
+        {
+            throw new NotImplementedException();
+        }
+
+        public IContainerRegistry RegisterSingleton(Type from, Type to, string name)
+        {
+            throw new NotImplementedException();
+        }
+
+        public object Resolve(Type type, params (Type Type, object Instance)[] parameters)
+        {
+            throw new NotImplementedException();
+        }
+
+        public object Resolve(Type type, string name, params (Type Type, object Instance)[] parameters)
         {
             throw new NotImplementedException();
         }

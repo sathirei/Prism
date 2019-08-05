@@ -1,6 +1,7 @@
 ﻿using Prism.Mvvm;
 using Prism.Navigation;
 using System;
+using System.Linq;
 using Xamarin.Forms;
 
 namespace Prism.Ioc
@@ -126,13 +127,15 @@ namespace Prism.Ioc
             if (string.IsNullOrWhiteSpace(name))
                 name = typeof(TView).Name;
 
-            foreach (var platform in platforms)
+            if(platforms.Any(x => x.RuntimePlatform.ToString() == Device.RuntimePlatform))
             {
-                if (Device.RuntimePlatform == platform.RuntimePlatform.ToString())
-                    containerRegistry.RegisterForNavigationWithViewModel<TViewModel>(platform.ViewType, name);
+                var platform = platforms.First(x => x.RuntimePlatform.ToString() == Device.RuntimePlatform);
+                containerRegistry.RegisterForNavigationWithViewModel<TViewModel>(platform.ViewType, name);
             }
-
-            containerRegistry.RegisterForNavigation<TView, TViewModel>(name);
+            else
+            {
+                containerRegistry.RegisterForNavigation<TView, TViewModel>(name);
+            }
         }
 
         /// <summary>
@@ -179,6 +182,19 @@ namespace Prism.Ioc
             ViewModelLocationProvider.Register(viewType.ToString(), typeof(TViewModel));
 
             containerRegistry.RegisterForNavigation(viewType, name);
+        }
+
+        public static IContainerRegistry RegisterDialog<TView>(this IContainerRegistry containerRegistry, string name = null)
+            where TView : View
+        {
+            return containerRegistry.Register<object, TView>(name ?? typeof(TView).Name);
+        }
+
+        public static IContainerRegistry RegisterDialog<TView, TViewModel>(this IContainerRegistry containerRegistry, string name = null)
+            where TView : View
+        {
+            ViewModelLocationProvider.Register<TView, TViewModel>();
+            return containerRegistry.RegisterDialog<TView>(name);
         }
     }
 }

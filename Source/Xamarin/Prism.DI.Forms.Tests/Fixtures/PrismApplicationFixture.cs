@@ -25,15 +25,12 @@ using Prism.Mvvm;
 using Prism.Navigation;
 using Prism.Services;
 using Xamarin.Forms;
+using Xamarin.Forms.Mocks;
 using Xunit;
 using Xunit.Abstractions;
 
-#if Autofac
-namespace Prism.Autofac.Forms.Tests.Fixtures
-#elif DryIoc
+#if DryIoc
 namespace Prism.DryIoc.Forms.Tests.Fixtures
-#elif Ninject
-namespace Prism.Ninject.Forms.Tests.Fixtures
 #elif Unity
 namespace Prism.Unity.Forms.Tests.Fixtures
 #endif
@@ -135,16 +132,48 @@ namespace Prism.Unity.Forms.Tests.Fixtures
 
             Assert.False(result.Success);
             Assert.NotNull(result.Exception);
-#if Autofac
-            Assert.IsType<ComponentNotRegisteredException>(result.Exception);
-#elif DryIoc
-            Assert.IsType<ContainerException>(result.Exception);
-#elif Ninject
-            Assert.IsType<ActivationException>(result.Exception);
+            Assert.IsType<NavigationException>(result.Exception);
+            Assert.Equal(NavigationException.NoPageIsRegistered, result.Exception.Message);
+#if DryIoc
+            Assert.IsType<ContainerException>(result.Exception.InnerException);
 #elif Unity
-            Assert.IsType<NullReferenceException>(result.Exception);
+            Assert.IsType<NullReferenceException>(result.Exception.InnerException);
 #endif
-            Assert.Contains("missing", result.Exception.ToString(), StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("missing", result.Exception.InnerException.ToString(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Theory]
+        [InlineData(typeof(AutowireView), TargetIdiom.Unsupported)]
+        [InlineData(typeof(AutowireViewTablet), TargetIdiom.Tablet)]
+        public async Task NavigationUses_IdiomSpecificView(Type viewType, TargetIdiom idiom)
+        {
+            Device.SetIdiom(idiom);
+            var initializer = new XunitPlatformInitializer(_testOutputHelper);
+            var app = new PrismApplicationMockPlatformAware(initializer);
+
+            Assert.True(app.Initialized);
+            await app.NavigationService.NavigateAsync("AutowireView");
+            Assert.IsType(viewType, app.MainPage);
+            Assert.IsType<AutowireViewModel>(app.MainPage.BindingContext);
+
+            Device.SetIdiom(TargetIdiom.Unsupported);
+        }
+
+        [Theory]
+        [InlineData(typeof(ViewAMock), "Test")]
+        [InlineData(typeof(ViewAMockAndroid), Device.Android)]
+        public async Task NavigationUses_PlatformSpecificView(Type viewType, string runtimePlatform)
+        {
+            MockForms.UpdateRuntimePlatform(runtimePlatform);
+            var initializer = new XunitPlatformInitializer(_testOutputHelper);
+            var app = new PrismApplicationMockPlatformAware(initializer);
+
+            Assert.True(app.Initialized);
+            await app.NavigationService.NavigateAsync("ViewAMock");
+            Assert.IsType(viewType, app.MainPage);
+            Assert.IsType<ViewModelAMock>(app.MainPage.BindingContext);
+
+            MockForms.UpdateRuntimePlatform("Test");
         }
 
         [Fact]
@@ -180,34 +209,9 @@ namespace Prism.Unity.Forms.Tests.Fixtures
         public void Module_Initialize()
         {
             var app = CreateMockApplication();
-            if(((IContainerExtension)app.Container).SupportsModules)
-            {
-                var module = app.Container.Resolve<ModuleMock>();
-                Assert.NotNull(module);
-                Assert.True(module.Initialized);
-            }
-            else
-            {
-                _testOutputHelper.WriteLine("Container Does Not Support Modules");
-            }
-        }
-
-        [Fact]
-        public void ThrowsException_If_Container_DoesNotSupportModules()
-        {
-            PrismApplicationMock app = null;
-            var exception = Record.Exception(() => app = new PrismApplicationModulesMock(new XunitPlatformInitializer(_testOutputHelper)));
-            // The app should always be null if we do not support Modules
-            if (app == null || !((IContainerExtension)app.Container).SupportsModules)
-            {
-                _testOutputHelper.WriteLine("Container Does Not Support Modules");
-                Assert.NotNull(exception);
-                Assert.IsType<NotSupportedException>(exception);
-            }
-            else
-            {
-                _testOutputHelper.WriteLine("Container Supports Modules");
-            }
+            var module = app.Container.Resolve<ModuleMock>();
+            Assert.NotNull(module);
+            Assert.True(module.Initialized);
         }
 
         [Fact]
@@ -222,8 +226,10 @@ namespace Prism.Unity.Forms.Tests.Fixtures
         [Fact]
         public void CustomNavigation_Resolved_In_ViewModel()
         {
-            var app = new PrismApplicationCustomNavMock(new XunitPlatformInitializer(_testOutputHelper));
-            app.MainPage = new AutowireView();
+            var app = new PrismApplicationCustomNavMock(new XunitPlatformInitializer(_testOutputHelper))
+            {
+                MainPage = new AutowireView()
+            };
             var vm = app.MainPage.BindingContext as AutowireViewModel;
 
             Assert.NotNull(vm);
@@ -294,8 +300,6 @@ namespace Prism.Unity.Forms.Tests.Fixtures
             Assert.IsType<XamlViewMockA>(navigationPage.RootPage);
             Assert.IsType<XamlViewMockA>(navigationPage.CurrentPage);
         }
-
-        
 
         private static INavigationService ResolveAndSetRootPage(PrismApplicationMock app)
         {

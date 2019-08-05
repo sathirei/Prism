@@ -9,6 +9,9 @@ using Prism.Navigation;
 using Xamarin.Forms;
 using Xamarin.Forms.Internals;
 
+#if !NETSTANDARD1_0
+[assembly: Xamarin.Forms.XmlnsDefinition("http://prismlibrary.com", "Prism.DryIoc")]
+#endif
 namespace Prism.DryIoc
 {
     /// <summary>
@@ -49,37 +52,13 @@ namespace Prism.DryIoc
             return new DryIocContainerExtension(new Container(CreateContainerRules()));
         }
 
-#if __ANDROID__
-        /// <summary>
-        /// Sets the <see cref="DependencyResolver" /> to use the App Container for resolving types
-        /// </summary>
-        protected override void SetDependencyResolver(IContainerProvider containerProvider)
-        {
-            base.SetDependencyResolver(containerProvider);
-            DependencyResolver.ResolveUsing((Type type, object[] dependencies) =>
-            {
-                var container = containerProvider.GetContainer();
-
-                foreach(var dependency in dependencies)
-                {
-                    if(dependency is Android.Content.Context context)
-                    {
-                        var resolver = container.Resolve<Func<Android.Content.Context, object>>(type);
-                        return resolver.Invoke(context);
-                    }
-                }
-                container.Resolve<ILoggerFacade>().Log($"Could not locate an Android.Content.Context to resolve {type.Name}", Category.Warn, Priority.High);
-                return container.Resolve(type);
-            });
-        }
-#endif
-
         /// <summary>
         /// Create <see cref="Rules" /> to alter behavior of <see cref="IContainer" />
         /// </summary>
         /// <returns>An instance of <see cref="Rules" /></returns>
         protected virtual Rules CreateContainerRules() => Rules.Default.WithAutoConcreteTypeResolution()
                                                                        .With(Made.Of(FactoryMethod.ConstructorWithResolvableArguments))
+                                                                       .WithoutFastExpressionCompiler()
                                                                        .WithDefaultIfAlreadyRegistered(IfAlreadyRegistered.Replace);
 
         /// <summary>
