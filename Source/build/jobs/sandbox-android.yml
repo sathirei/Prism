@@ -1,10 +1,10 @@
 parameters:
-  buildConfiguration: 'Debug'
+  buildConfiguration: 'Release'
+  versionName: ''
 
 jobs:
 - job: sandboxAndroid
   displayName: Sandbox Android App
-  condition: and(succeeded(), ne(variables['Build.SourceBranch'], 'refs/heads/master'), ne(variables['Build.Reason'], 'PullRequest'))
   pool:
     vmImage: $(MacImage)
     demands:
@@ -15,15 +15,36 @@ jobs:
   workspace:
     clean: all
   steps:
+  - task: android-manifest-version@1
+    displayName: 'Bump Android Versions in AndroidManifest.xml'
+    inputs:
+      sourcePath: Sandbox/Xamarin/src/HelloWorld.Android/Properties/AndroidManifest.xml
+      versionCodeOption: 'buildid'
+      versionCode: '$(Build.BuildId)'
+      versionName: ${{ parameters.versionName }}
+      printFile: true
+
   - template: ../steps/set-runtime.yml
 
   - template: ../steps/prepare-build.yml
     parameters:
-      solution: Sandbox/Xamarin/HelloWorld/HelloWorld.sln
+      solution: Sandbox/Xamarin/HelloWorld.sln
 
   - task: XamarinAndroid@1
     displayName: 'Build Xamarin.Android project HelloWorld.Android.csproj'
     inputs:
-      projectFile: Sandbox/Xamarin/HelloWorld/HelloWorld/HelloWorld.Android/HelloWorld.Android.csproj
+      projectFile: Sandbox/Xamarin/src/HelloWorld.Android/HelloWorld.Android.csproj
       outputDirectory: '$(Build.BinariesDirectory)/${{ parameters.buildConfiguration }}'
       configuration: ${{ parameters.buildConfiguration }}
+
+  - bash: cp ./com.prismlibrary.helloworld.apk $stagingDir
+    displayName: Stage Artifacts
+    workingDirectory: '$(Build.BinariesDirectory)/${{ parameters.buildConfiguration }}'
+    env:
+      stagingDir: $(Build.ArtifactStagingDirectory)
+
+  - task: PublishPipelineArtifact@0
+    displayName: 'Publish Sandbox Artifacts'
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)'
+      artifactName: Sandbox-Android

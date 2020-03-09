@@ -2,14 +2,16 @@ parameters:
   solution: '**/*.sln'
 
 steps:
-- task: DotNetCoreInstaller@0
+- task: UseDotNet@2
   inputs:
-    version: '3.0.100-preview5-011568'
+    packageType: 'sdk'
+    useGlobalJson: true
+    workingDirectory: Source
 
 - task: NuGetToolInstaller@0
-  displayName: Use NuGet 4.9.4
+  displayName: Use latest NuGet
   inputs:
-    versionSpec: 4.9.4
+    checkLatest: true
 
 - task: NuGetCommand@2
   displayName: 'NuGet restore'

@@ -21,14 +21,24 @@ namespace Prism.Services.Dialogs
             ShowDialogInternal(name, parameters, callback, false);
         }
 
+        public void Show(string name, IDialogParameters parameters, Action<IDialogResult> callback, string windowName)
+        {
+            ShowDialogInternal(name, parameters, callback, false, windowName);
+        }
+
         public void ShowDialog(string name, IDialogParameters parameters, Action<IDialogResult> callback)
         {
             ShowDialogInternal(name, parameters, callback, true);
         }
 
-        void ShowDialogInternal(string name, IDialogParameters parameters, Action<IDialogResult> callback, bool isModal)
+        public void ShowDialog(string name, IDialogParameters parameters, Action<IDialogResult> callback, string windowName)
         {
-            IDialogWindow dialogWindow = CreateDialogWindow();
+            ShowDialogInternal(name, parameters, callback, true, windowName);
+        }
+
+        void ShowDialogInternal(string name, IDialogParameters parameters, Action<IDialogResult> callback, bool isModal, string windowName = null)
+        {
+            IDialogWindow dialogWindow = CreateDialogWindow(windowName);
             ConfigureDialogWindowEvents(dialogWindow, callback);
             ConfigureDialogWindowContent(name, dialogWindow, parameters);
 
@@ -38,12 +48,15 @@ namespace Prism.Services.Dialogs
                 dialogWindow.Show();
         }
 
-        IDialogWindow CreateDialogWindow()
+        protected virtual IDialogWindow CreateDialogWindow(string name)
         {
-            return _containerExtension.Resolve<IDialogWindow>();
+            if (string.IsNullOrWhiteSpace(name))
+                return _containerExtension.Resolve<IDialogWindow>();
+            else
+                return _containerExtension.Resolve<IDialogWindow>(name);
         }
 
-        void ConfigureDialogWindowContent(string dialogName, IDialogWindow window, IDialogParameters parameters)
+        protected virtual void ConfigureDialogWindowContent(string dialogName, IDialogWindow window, IDialogParameters parameters)
         {
             var content = _containerExtension.Resolve<object>(dialogName);
             var dialogContent = content as FrameworkElement;
@@ -59,7 +72,7 @@ namespace Prism.Services.Dialogs
             MvvmHelpers.ViewAndViewModelAction<IDialogAware>(viewModel, d => d.OnDialogOpened(parameters));
         }
 
-        void ConfigureDialogWindowEvents(IDialogWindow dialogWindow, Action<IDialogResult> callback)
+        protected virtual void ConfigureDialogWindowEvents(IDialogWindow dialogWindow, Action<IDialogResult> callback)
         {
             Action<IDialogResult> requestCloseHandler = null;
             requestCloseHandler = (o) =>
@@ -104,7 +117,7 @@ namespace Prism.Services.Dialogs
             dialogWindow.Closed += closedHandler;
         }
 
-        void ConfigureDialogWindowProperties(IDialogWindow window, FrameworkElement dialogContent, IDialogAware viewModel)
+        protected virtual void ConfigureDialogWindowProperties(IDialogWindow window, FrameworkElement dialogContent, IDialogAware viewModel)
         {
             var windowStyle = Dialog.GetWindowStyle(dialogContent);
             if (windowStyle != null)
@@ -114,7 +127,7 @@ namespace Prism.Services.Dialogs
             window.DataContext = viewModel; //we want the host window and the dialog to share the same data contex
 
             if (window.Owner == null)
-                window.Owner = Application.Current.Windows.OfType<Window>().FirstOrDefault(x => x.IsActive);
+                window.Owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(x => x.IsActive);
         }
     }
 }

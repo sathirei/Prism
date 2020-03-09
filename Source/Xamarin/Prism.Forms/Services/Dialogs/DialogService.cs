@@ -1,4 +1,4 @@
-﻿using Prism.AppModel;
+using Prism.AppModel;
 using Prism.Common;
 using Prism.Ioc;
 using Prism.Mvvm;
@@ -46,14 +46,14 @@ namespace Prism.Services.Dialogs
                         }
 
                         dialogAware.RequestClose -= DialogAware_RequestClose;
-                        callback(result);
+                        callback?.Invoke(result);
                         GC.Collect();
                     }
                     catch(DialogException dex)
                     {
                         if(dex.Message != DialogException.CanCloseIsFalse)
                         {
-                            callback(new DialogResult
+                            callback?.Invoke(new DialogResult
                             {
                                 Exception = dex,
                                 Parameters = parameters
@@ -62,7 +62,7 @@ namespace Prism.Services.Dialogs
                     }
                     catch (Exception ex)
                     {
-                        callback(new DialogResult
+                        callback?.Invoke(new DialogResult
                         {
                             Exception = ex,
                             Parameters = parameters
@@ -87,7 +87,7 @@ namespace Prism.Services.Dialogs
             catch (Exception ex)
             {
                 var error = ex.ToString();
-                callback(new DialogResult { Exception = ex });
+                callback?.Invoke(new DialogResult { Exception = ex });
             }
         }
 
@@ -257,6 +257,7 @@ namespace Prism.Services.Dialogs
             var overlay = new AbsoluteLayout();
             overlay.SetValue(IsPopupHostProperty, true);
             var existingContent = currentPage.Content;
+            existingContent.BindingContext = currentPage.BindingContext;
             var content = new DialogContainer
             {
                 Padding = currentPage.Padding,
@@ -287,10 +288,10 @@ namespace Prism.Services.Dialogs
             var relativeHeight = DialogLayout.GetRelativeHeightRequest(popupView);
             if (relativeHeight != null)
             {
-                popupContainer.SetBinding(DialogContainer.WidthRequestProperty,
+                popupContainer.SetBinding(DialogContainer.HeightRequestProperty,
                     new Binding("Height",
                                 BindingMode.OneWay,
-                                new RelativeContentSizeConverter { RelativeSize = relativeWidth.Value },
+                                new RelativeContentSizeConverter { RelativeSize = relativeHeight.Value },
                                 source: currentPage));
             }
 
@@ -301,7 +302,7 @@ namespace Prism.Services.Dialogs
             AbsoluteLayout.SetLayoutBounds(popupContainer, popupBounds);
             overlay.Children.Add(content);
 
-            if(DialogLayout.GetUseMask(popupContainer) ?? true)
+            if (DialogLayout.GetUseMask(popupContainer.Content) ?? true)
             {
                 overlay.Children.Add(mask);
             }
@@ -338,7 +339,7 @@ namespace Prism.Services.Dialogs
             return overlayStyle;
         }
 
-        private static readonly BindableProperty IsPopupHostProperty =
+        internal static readonly BindableProperty IsPopupHostProperty =
             BindableProperty.CreateAttached("IsPopupHost", typeof(bool), typeof(DialogService), false);
     }
 }

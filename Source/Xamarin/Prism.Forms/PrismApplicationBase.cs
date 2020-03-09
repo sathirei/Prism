@@ -13,7 +13,6 @@ using System;
 using System.Linq;
 using Xamarin.Forms;
 using Xamarin.Forms.Internals;
-using DependencyService = Prism.Services.DependencyService;
 
 namespace Prism
 {
@@ -189,7 +188,6 @@ namespace Prism
             containerRegistry.RegisterSingleton<IApplicationProvider, ApplicationProvider>();
             containerRegistry.RegisterSingleton<IApplicationStore, ApplicationStore>();
             containerRegistry.RegisterSingleton<IEventAggregator, EventAggregator>();
-            containerRegistry.RegisterSingleton<IDependencyService, DependencyService>();
             containerRegistry.RegisterSingleton<IPageDialogService, PageDialogService>();
             containerRegistry.RegisterSingleton<IDialogService, DialogService>();
             containerRegistry.RegisterSingleton<IDeviceService, DeviceService>();
@@ -230,14 +228,20 @@ namespace Prism
 
         protected override void OnResume()
         {
-            var page = PageUtilities.GetCurrentPage(MainPage);
-            PageUtilities.InvokeViewAndViewModelAction<IApplicationLifecycleAware>(page, x => x.OnResume());
+            if (MainPage != null)
+            {
+                var page = PageUtilities.GetCurrentPage(MainPage);
+                PageUtilities.InvokeViewAndViewModelAction<IApplicationLifecycleAware>(page, x => x.OnResume());
+            }
         }
 
         protected override void OnSleep()
         {
-            var page = PageUtilities.GetCurrentPage(MainPage);
-            PageUtilities.InvokeViewAndViewModelAction<IApplicationLifecycleAware>(page, x => x.OnSleep());
+            if (MainPage != null)
+            {
+                var page = PageUtilities.GetCurrentPage(MainPage);
+                PageUtilities.InvokeViewAndViewModelAction<IApplicationLifecycleAware>(page, x => x.OnSleep());
+            }
         }
 
         private void PrismApplicationBase_ModalPopping(object sender, ModalPoppingEventArgs e)
